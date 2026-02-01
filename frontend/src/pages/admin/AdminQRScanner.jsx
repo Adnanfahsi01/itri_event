@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 /**
  * AdminQRScanner Component
@@ -12,7 +12,14 @@ function AdminQRScanner() {
   const [validationResult, setValidationResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [manualCode, setManualCode] = useState('');
-  const scannerRef = useRef(null);
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState(null);
+  const [cameras, setCameras] = useState([]);
+  const [selectedCamera, setSelectedCamera] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastScannedCode, setLastScannedCode] = useState(null);
+  const html5QrCode = useRef(null);
+  const scanTimeoutRef = useRef(null);
 
   useEffect(() => {
     // Check if admin is logged in
@@ -22,28 +29,102 @@ function AdminQRScanner() {
       return;
     }
 
-    // Initialize QR scanner
-    const scanner = new Html5QrcodeScanner('qr-reader', {
-      qrbox: {
-        width: 250,
-        height: 250,
-      },
-      fps: 5,
-    });
-
-    scanner.render(onScanSuccess, onScanError);
-    scannerRef.current = scanner;
+    // Get available cameras and start scanning
+    getCameras();
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
+      stopScanner();
+      // Clear timeout on unmount
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
       }
     };
   }, [navigate]);
 
-  const onScanSuccess = (decodedText) => {
+  const getCameras = async () => {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length) {
+        setCameras(devices);
+        setSelectedCamera(devices[0].id);
+        startScanner(devices[0].id);
+      } else {
+        setError('No cameras found');
+      }
+    } catch (err) {
+      console.error('Error getting cameras:', err);
+      setError('Error accessing camera: ' + err.message);
+    }
+  };
+
+  const startScanner = async (cameraId) => {
+    try {
+      if (html5QrCode.current) {
+        await stopScanner();
+      }
+
+      html5QrCode.current = new Html5Qrcode("qr-reader");
+      
+      const config = {
+        fps: 10,
+        qrbox: { width: 300, height: 300 },
+        aspectRatio: 1.0
+      };
+
+      await html5QrCode.current.start(
+        cameraId,
+        config,
+        onScanSuccess,
+        onScanError
+      );
+      
+      setScanning(true);
+      setError(null);
+    } catch (err) {
+      console.error('Error starting scanner:', err);
+      setError('Error starting camera: ' + err.message);
+    }
+  };
+
+  const stopScanner = async () => {
+    try {
+      if (html5QrCode.current && html5QrCode.current.isScanning) {
+        await html5QrCode.current.stop();
+        await html5QrCode.current.clear();
+      }
+      html5QrCode.current = null;
+      setScanning(false);
+    } catch (err) {
+      console.error('Error stopping scanner:', err);
+    }
+  };
+
+  const onScanSuccess = async (decodedText, decodedResult) => {
+    // Prevent multiple scans - check if we're already processing or if this is the same code
+    if (isProcessing || decodedText === lastScannedCode) {
+      return;
+    }
+    
+    // Immediately stop scanning and set processing state
+    setIsProcessing(true);
+    setLastScannedCode(decodedText);
+    
+    // Clear any existing timeout
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+    }
+    
+    // Stop scanner immediately
+    await stopScanner();
+    
     setScanResult(decodedText);
     validateQRCode(decodedText);
+    
+    // Reset processing after 3 seconds to allow for new scans
+    scanTimeoutRef.current = setTimeout(() => {
+      setIsProcessing(false);
+      setLastScannedCode(null);
+    }, 3000);
   };
 
   const onScanError = (error) => {
@@ -52,6 +133,11 @@ function AdminQRScanner() {
   };
 
   const validateQRCode = async (qrData) => {
+    // Prevent multiple simultaneous validations
+    if (loading) {
+      return;
+    }
+    
     setLoading(true);
     setValidationResult(null);
 
@@ -63,8 +149,12 @@ function AdminQRScanner() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ qr_data: qrData }),
+        body: JSON.stringify({ qr_data: qrData, mark_as_used: false }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
       const data = await response.json();
       setValidationResult(data);
@@ -72,7 +162,44 @@ function AdminQRScanner() {
       console.error('Error validating QR code:', error);
       setValidationResult({
         valid: false,
-        message: 'Error connecting to server',
+        message: `Error: ${error.message}`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markTicketAsUsed = async (ticketCode) => {
+    // Prevent multiple simultaneous requests
+    if (loading) {
+      return;
+    }
+    
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const qrData = JSON.stringify({ ticket_code: ticketCode });
+      const response = await fetch('http://localhost:8000/api/reservations/validate-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ qr_data: qrData, mark_as_used: true }), // Actually mark as used
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setValidationResult(data);
+    } catch (error) {
+      console.error('Error marking ticket as used:', error);
+      setValidationResult({
+        valid: false,
+        message: `Error: ${error.message}`,
       });
     } finally {
       setLoading(false);
@@ -82,17 +209,67 @@ function AdminQRScanner() {
   const handleManualValidation = (e) => {
     e.preventDefault();
     if (manualCode.trim()) {
-      // Create a JSON string similar to QR code data
-      const qrData = JSON.stringify({ ticket_code: manualCode.trim() });
-      setScanResult(qrData);
-      validateQRCode(qrData);
+      // First, find the reservation by ticket code to get the email
+      fetch('http://localhost:8000/api/reservations', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      })
+        .then(response => response.json())
+        .then(reservations => {
+          const reservation = reservations.find(r => r.ticket_code === manualCode.trim());
+          if (reservation) {
+            // Create QR data with both ticket_code and email (like real QR codes)
+            const qrData = JSON.stringify({
+              ticket_code: manualCode.trim(),
+              email: reservation.email
+            });
+            setScanResult(qrData);
+            validateQRCode(qrData);
+          } else {
+            // If ticket not found, still validate with just ticket code
+            const qrData = JSON.stringify({ ticket_code: manualCode.trim() });
+            setScanResult(qrData);
+            validateQRCode(qrData);
+          }
+        })
+        .catch(() => {
+          // If API call fails, validate with just ticket code
+          const qrData = JSON.stringify({ ticket_code: manualCode.trim() });
+          setScanResult(qrData);
+          validateQRCode(qrData);
+        });
     }
   };
 
-  const resetScanner = () => {
+  const handleRestartScan = async () => {
+    // Clear timeout if exists
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+    }
+    
     setScanResult(null);
     setValidationResult(null);
-    setManualCode('');
+    setError(null);
+    setIsProcessing(false);
+    setLastScannedCode(null);
+    
+    if (selectedCamera) {
+      await startScanner(selectedCamera);
+    }
+  };
+
+  const handleCameraChange = async (cameraId) => {
+    // Clear timeout if exists
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+    }
+    
+    setSelectedCamera(cameraId);
+    setIsProcessing(false);
+    setLastScannedCode(null);
+    await stopScanner();
+    await startScanner(cameraId);
   };
 
   return (
@@ -118,16 +295,71 @@ function AdminQRScanner() {
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h2 className="text-xl font-bold text-accent mb-4">Scan Ticket QR Code</h2>
             
+            {/* Camera Selection */}
+            {cameras.length > 1 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Camera:
+                </label>
+                <select 
+                  value={selectedCamera}
+                  onChange={(e) => handleCameraChange(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                >
+                  {cameras.map((camera, index) => (
+                    <option key={camera.id} value={camera.id}>
+                      {camera.label || `Camera ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
+            
             {!scanResult ? (
-              <div id="qr-reader" className="w-full"></div>
+              <div>
+                <div id="qr-reader" className="w-full"></div>
+                {scanning && (
+                  <div className="text-center mt-4">
+                    <p className="text-sm text-gray-600 mb-2">Point the camera at a QR code to scan</p>
+                    <button
+                      onClick={() => stopScanner()}
+                      className="bg-red-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-600"
+                    >
+                      Stop Scanning
+                    </button>
+                  </div>
+                )}
+                {!scanning && !error && (
+                  <div className="text-center mt-4">
+                    <button
+                      onClick={handleRestartScan}
+                      className="bg-primary text-white px-6 py-2 rounded-lg font-semibold hover:bg-accent"
+                    >
+                      Start Camera
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">QR Code detected!</p>
+                <div className="mb-4">
+                  <svg className="w-16 h-16 mx-auto text-green-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-gray-600">QR Code scanned successfully!</p>
+                </div>
                 <button
-                  onClick={resetScanner}
+                  onClick={handleRestartScan}
                   className="bg-primary text-white px-6 py-2 rounded-lg font-semibold hover:bg-accent"
                 >
-                  Scan Another
+                  Scan Again
                 </button>
               </div>
             )}
@@ -221,6 +453,18 @@ function AdminQRScanner() {
                       <p><span className="font-semibold">Days:</span> {validationResult.reservation.days?.join(', ')}</p>
                       <p><span className="font-semibold">Ticket Code:</span> {validationResult.reservation.ticket_code}</p>
                     </div>
+                    
+                    {/* Mark as Used button for valid, unused tickets */}
+                    {validationResult.valid && !validationResult.reservation.is_used && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => markTicketAsUsed(validationResult.reservation.ticket_code)}
+                          className="w-full bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700"
+                        >
+                          Mark as Used (Check In)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -11,6 +11,7 @@ import AdminReservations from './pages/admin/AdminReservations';
 import AdminSpeakers from './pages/admin/AdminSpeakers';
 import AdminPrograms from './pages/admin/AdminPrograms';
 import AdminQRScanner from './pages/admin/AdminQRScanner';
+import AdminScanStats from './pages/admin/AdminScanStats';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/admin/speakers" element={<AdminSpeakers />} />
         <Route path="/admin/programs" element={<AdminPrograms />} />
         <Route path="/admin/qr-scanner" element={<AdminQRScanner />} />
+        <Route path="/admin/scan-stats" element={<AdminScanStats />} />
 
         {/* Public Routes (with navbar/footer) */}
         <Route

@@ -23,6 +23,10 @@ const TextType = ({
   onSentenceComplete,
   startOnVisible = false,
   reverseMode = false,
+  // Remove invalid DOM props
+  variableSpeedEnabled,
+  variableSpeedMin, 
+  variableSpeedMax,
   ...props
 }) => {
   const [displayedText, setDisplayedText] = useState('');

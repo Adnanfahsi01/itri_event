@@ -203,13 +203,31 @@ class ReservationController extends Controller
                 ]);
             }
 
-            // Mark as used
-            $reservation->update(['is_used' => true]);
+            // Check if this is just validation or actual check-in
+            $markAsUsed = $request->input('mark_as_used', false);
+            
+            // Always track the scan
+            $reservation->increment('scan_count');
+            $reservation->update([
+                'is_scanned' => true,
+                'scanned_at' => now(),
+            ]);
+            
+            if ($markAsUsed) {
+                // Mark as used only if explicitly requested
+                $reservation->update(['is_used' => true]);
+                $message = 'Ticket validated and marked as used';
+            } else {
+                $message = 'Valid ticket (not yet used)';
+            }
 
             return response()->json([
                 'valid' => true,
-                'message' => 'Ticket validated successfully',
+                'message' => $message,
                 'reservation' => $reservation,
+                'is_used' => $reservation->is_used,
+                'scan_count' => $reservation->scan_count,
+                'scanned_at' => $reservation->scanned_at,
             ]);
 
         } catch (\Exception $e) {
@@ -280,7 +298,58 @@ class ReservationController extends Controller
             'ticket_status' => [
                 'used' => $usedTickets,
                 'unused' => $unusedTickets,
+        ]
+        ]);
+    }
+
+    /**
+     * Get scan statistics (Admin only)
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function scanStatistics()
+    {
+        $totalReservations = Reservation::count();
+        $totalScanned = Reservation::where('is_scanned', true)->count();
+        $totalScans = Reservation::sum('scan_count');
+        
+        // Scans per day (last 7 days)
+        $scansPerDay = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $count = Reservation::whereDate('scanned_at', $date)->sum('scan_count');
+            $scansPerDay[] = [
+                'date' => $date,
+                'count' => $count,
+            ];
+        }
+        
+        // Scanned reservations with details
+        $scannedReservations = Reservation::where('is_scanned', true)
+            ->orderBy('scanned_at', 'desc')
+            ->get()
+            ->map(function ($reservation) {
+                return [
+                    'id' => $reservation->id,
+                    'ticket_code' => $reservation->ticket_code,
+                    'full_name' => $reservation->first_name . ' ' . $reservation->last_name,
+                    'email' => $reservation->email,
+                    'scan_count' => $reservation->scan_count,
+                    'scanned_at' => $reservation->scanned_at,
+                    'is_used' => $reservation->is_used,
+                    'days' => $reservation->days,
+                ];
+            });
+
+        return response()->json([
+            'summary' => [
+                'total_reservations' => $totalReservations,
+                'total_scanned' => $totalScanned,
+                'total_scans' => $totalScans,
+                'scan_rate' => $totalReservations > 0 ? round(($totalScanned / $totalReservations) * 100, 2) : 0,
             ],
+            'scans_per_day' => $scansPerDay,
+            'scanned_reservations' => $scannedReservations,
         ]);
     }
 

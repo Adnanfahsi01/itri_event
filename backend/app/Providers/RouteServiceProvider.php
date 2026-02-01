@@ -39,5 +39,10 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
+
+        // Higher rate limit for QR scanning operations
+        RateLimiter::for('qr-scan', function (Request $request) {
+            return Limit::perMinute(200)->by($request->user()?->id ?: $request->ip());
+        });
     }
 }

@@ -41,7 +41,7 @@ export default function Hero() {
           AI ITRI NTIC EVENT 2026
         </h1>
 
-        <p className="hero-subtitle" style={{ color: 'white', fontSize: '1.5rem' }}>
+        <div className="hero-subtitle" style={{ color: 'white', fontSize: '1.5rem' }}>
           <TextType 
               text={["Don't follow the future", "reinvent it !"]}
               typingSpeed={75}
@@ -49,12 +49,9 @@ export default function Hero() {
               showCursor
               cursorCharacter="_"
               deletingSpeed={50}
-              variableSpeedEnabled={false}
-              variableSpeedMin={60}
-              variableSpeedMax={120}
               cursorBlinkDuration={0.5}
           />
-        </p>
+        </div>
 
         <p className="hero-location" style={{ color: 'white', fontSize: '1.1rem' }}>
           📍 Tanger, Morocco

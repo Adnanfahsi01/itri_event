@@ -70,11 +70,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reservations', [ReservationController::class, 'index']);
     Route::get('/reservations/{reservation}', [ReservationController::class, 'show']);
     
-    // QR Validation (Admin)
-    Route::post('/reservations/validate-qr', [ReservationController::class, 'validateQR']);
+    // QR Validation (Admin) - Higher rate limit for scanning
+    Route::middleware('throttle:qr-scan')->group(function () {
+        Route::post('/reservations/validate-qr', [ReservationController::class, 'validateQR']);
+    });
     
     // Statistics (Admin)
     Route::get('/statistics', [ReservationController::class, 'statistics']);
+    Route::get('/scan-statistics', [ReservationController::class, 'scanStatistics']);
     
     // Export (Admin)
     Route::get('/reservations/export', [ReservationController::class, 'export']);

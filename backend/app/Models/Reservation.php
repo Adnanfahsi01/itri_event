@@ -28,16 +28,21 @@ class Reservation extends Model
         'ticket_code',
         'qr_code',
         'is_used',
+        'is_scanned',
+        'scanned_at',
+        'scan_count',
     ];
 
     /**
      * The attributes that should be cast to native types.
-     * This automatically converts JSON fields to arrays
      */
     protected $casts = [
         'days' => 'array',
         'seat_numbers' => 'array',
         'is_used' => 'boolean',
+        'is_scanned' => 'boolean',
+        'scanned_at' => 'datetime',
+        'scan_count' => 'integer',
     ];
 
     /**

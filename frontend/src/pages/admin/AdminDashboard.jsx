@@ -171,37 +171,45 @@ function AdminDashboard() {
         </div>
 
         {/* Management Links */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           <Link
             to="/admin/reservations"
             className="bg-primary text-white p-6 rounded-lg shadow-lg hover:bg-accent transform hover:scale-105 transition-all text-center"
           >
-            <h3 className="text-2xl font-bold mb-2">Manage Reservations</h3>
-            <p>View and manage all event reservations</p>
+            <h3 className="text-xl font-bold mb-2">Manage Reservations</h3>
+            <p className="text-sm">View and manage all event reservations</p>
           </Link>
 
           <Link
             to="/admin/speakers"
             className="bg-primary text-white p-6 rounded-lg shadow-lg hover:bg-accent transform hover:scale-105 transition-all text-center"
           >
-            <h3 className="text-2xl font-bold mb-2">Manage Speakers</h3>
-            <p>Add, edit, or remove speakers</p>
+            <h3 className="text-xl font-bold mb-2">Manage Speakers</h3>
+            <p className="text-sm">Add, edit, or remove speakers</p>
           </Link>
 
           <Link
             to="/admin/programs"
             className="bg-primary text-white p-6 rounded-lg shadow-lg hover:bg-accent transform hover:scale-105 transition-all text-center"
           >
-            <h3 className="text-2xl font-bold mb-2">Manage Program</h3>
-            <p>Create and update event schedule</p>
+            <h3 className="text-xl font-bold mb-2">Manage Program</h3>
+            <p className="text-sm">Create and update event schedule</p>
           </Link>
 
           <Link
             to="/admin/qr-scanner"
             className="bg-green-600 text-white p-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition-all text-center"
           >
-            <h3 className="text-2xl font-bold mb-2">QR Scanner</h3>
-            <p>Scan and validate tickets</p>
+            <h3 className="text-xl font-bold mb-2">QR Scanner</h3>
+            <p className="text-sm">Scan and validate tickets</p>
+          </Link>
+
+          <Link
+            to="/admin/scan-stats"
+            className="bg-blue-600 text-white p-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition-all text-center"
+          >
+            <h3 className="text-xl font-bold mb-2">Scan Statistics</h3>
+            <p className="text-sm">View scanning analytics and reports</p>
           </Link>
         </div>
 
