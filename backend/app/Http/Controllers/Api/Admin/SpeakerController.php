@@ -1,0 +1,149 @@
+<?php
+
+namespace App\Http\Controllers\Api\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Speaker;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * Speaker Controller
+ * Handles CRUD operations for speakers
+ */
+class SpeakerController extends Controller
+{
+    /**
+     * Get all speakers
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index()
+    {
+        $speakers = Speaker::all();
+        return response()->json($speakers);
+    }
+
+    /**
+     * Get a single speaker
+     * 
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show($id)
+    {
+        $speaker = Speaker::find($id);
+        
+        if (!$speaker) {
+            return response()->json([
+                'message' => 'Speaker not found'
+            ], 404);
+        }
+
+        return response()->json($speaker);
+    }
+
+    /**
+     * Create a new speaker
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function store(Request $request)
+    {
+        // Validate incoming data
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'job_title' => 'required|string|max:255',
+            'bio' => 'required|string',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB
+        ]);
+
+        // Handle photo upload if provided
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('speakers', 'public');
+            $validated['photo'] = $path;
+        }
+
+        // Create speaker
+        $speaker = Speaker::create($validated);
+
+        return response()->json([
+            'message' => 'Speaker created successfully',
+            'speaker' => $speaker
+        ], 201);
+    }
+
+    /**
+     * Update an existing speaker
+     * 
+     * @param Request $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request, $id)
+    {
+        $speaker = Speaker::find($id);
+        
+        if (!$speaker) {
+            return response()->json([
+                'message' => 'Speaker not found'
+            ], 404);
+        }
+
+        // Validate incoming data
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'job_title' => 'sometimes|required|string|max:255',
+            'bio' => 'sometimes|required|string',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        // Handle photo upload if provided
+        if ($request->hasFile('photo')) {
+            // Delete old photo if exists
+            if ($speaker->photo) {
+                Storage::disk('public')->delete($speaker->photo);
+            }
+            
+            $path = $request->file('photo')->store('speakers', 'public');
+            $validated['photo'] = $path;
+        }
+
+        // Update speaker
+        $speaker->update($validated);
+
+        return response()->json([
+            'message' => 'Speaker updated successfully',
+            'speaker' => $speaker
+        ]);
+    }
+
+    /**
+     * Delete a speaker
+     * 
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy($id)
+    {
+        $speaker = Speaker::find($id);
+        
+        if (!$speaker) {
+            return response()->json([
+                'message' => 'Speaker not found'
+            ], 404);
+        }
+
+        // Delete photo if exists
+        if ($speaker->photo) {
+            Storage::disk('public')->delete($speaker->photo);
+        }
+
+        $speaker->delete();
+
+        return response()->json([
+            'message' => 'Speaker deleted successfully'
+        ]);
+    }
+}

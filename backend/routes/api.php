@@ -1,0 +1,81 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SpeakerController;
+use App\Http\Controllers\ProgramController;
+use App\Http\Controllers\SeatController;
+use App\Http\Controllers\ReservationController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group.
+|
+*/
+
+// ==========================================
+// PUBLIC ROUTES (No authentication required)
+// ==========================================
+
+// Authentication
+Route::post('/admin/login', [AuthController::class, 'login']);
+
+// Speakers - Public access
+Route::get('/speakers', [SpeakerController::class, 'index']);
+Route::get('/speakers/{speaker}', [SpeakerController::class, 'show']);
+
+// Programs - Public access
+Route::get('/programs', [ProgramController::class, 'index']);
+Route::get('/programs/{program}', [ProgramController::class, 'show']);
+
+// Seats - Public access
+Route::get('/seats', [SeatController::class, 'index']);
+Route::get('/seats/availability', [SeatController::class, 'availability']);
+
+// Reservations - Public (create only)
+Route::post('/reservations', [ReservationController::class, 'store']);
+
+// Download ticket - Public
+Route::get('/tickets/{ticketCode}/download', [ReservationController::class, 'downloadTicket']);
+
+
+// ==========================================
+// PROTECTED ROUTES (Admin authentication required)
+// ==========================================
+
+Route::middleware('auth:sanctum')->group(function () {
+    
+    // Auth
+    Route::post('/admin/logout', [AuthController::class, 'logout']);
+    Route::get('/admin/me', [AuthController::class, 'me']);
+    
+    // Speakers CRUD (Admin)
+    Route::post('/speakers', [SpeakerController::class, 'store']);
+    Route::put('/speakers/{speaker}', [SpeakerController::class, 'update']);
+    Route::delete('/speakers/{speaker}', [SpeakerController::class, 'destroy']);
+    
+    // Programs CRUD (Admin)
+    Route::get('/admin/programs', [ProgramController::class, 'all']);
+    Route::post('/programs', [ProgramController::class, 'store']);
+    Route::put('/programs/{program}', [ProgramController::class, 'update']);
+    Route::delete('/programs/{program}', [ProgramController::class, 'destroy']);
+    
+    // Reservations (Admin)
+    Route::get('/reservations', [ReservationController::class, 'index']);
+    Route::get('/reservations/{reservation}', [ReservationController::class, 'show']);
+    
+    // QR Validation (Admin)
+    Route::post('/reservations/validate-qr', [ReservationController::class, 'validateQR']);
+    
+    // Statistics (Admin)
+    Route::get('/statistics', [ReservationController::class, 'statistics']);
+    
+    // Export (Admin)
+    Route::get('/reservations/export', [ReservationController::class, 'export']);
+});

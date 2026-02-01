@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs
+/dist
+/build
+
+# Laravel specific
+backend/.env
+backend/storage/*.key
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+
+# Frontend specific
+frontend/node_modules/
+frontend/dist/
+frontend/build/
