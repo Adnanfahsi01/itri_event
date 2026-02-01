@@ -100,7 +100,6 @@ function AdminReservations() {
                 <option value="day1">Jour 1</option>
                 <option value="day2">Jour 2</option>
                 <option value="day3">Jour 3</option>
-                <option value="All 3 Days">All 3 Days</option>
               </select>
             </div>
 
@@ -112,8 +111,8 @@ function AdminReservations() {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">All Roles</option>
-                <option value="Student">Student</option>
-                <option value="Employee">Employee</option>
+                <option value="student">Student</option>
+                <option value="employee">Employee</option>
               </select>
             </div>
 

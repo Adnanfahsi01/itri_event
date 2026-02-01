@@ -229,7 +229,7 @@ function AdminDashboard() {
                     <td className="py-3 px-4">
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          reservation.role === 'Student'
+                          reservation.role === 'student'
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-green-100 text-green-800'
                         }`}
@@ -237,8 +237,12 @@ function AdminDashboard() {
                         {reservation.role}
                       </span>
                     </td>
-                    <td className="py-3 px-4">{reservation.day}</td>
-                    <td className="py-3 px-4 font-semibold">{reservation.seat?.seat_number}</td>
+                    <td className="py-3 px-4">
+                      {reservation.days?.map(d => d === 'day1' ? 'J1' : d === 'day2' ? 'J2' : 'J3').join(', ') || 'N/A'}
+                    </td>
+                    <td className="py-3 px-4 font-semibold">
+                      {reservation.seat_numbers?.map(s => s.seat).join(', ') || 'N/A'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
