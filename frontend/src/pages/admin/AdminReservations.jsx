@@ -14,14 +14,25 @@ function AdminReservations() {
 
   useEffect(() => {
     loadReservations();
+  }, []);
+
+  useEffect(() => {
+    // Only reload when filters actually change (not on initial load)
+    if (filters.day || filters.role || filters.search) {
+      loadReservations();
+    }
   }, [filters]);
 
   const loadReservations = async () => {
     try {
+      console.log('Loading reservations with filters:', filters);
       const response = await getReservations(filters);
+      console.log('API Response:', response);
+      console.log('Reservations data:', response.data);
       setReservations(response.data || []);
     } catch (error) {
       console.error('Error loading reservations:', error);
+      console.error('Error details:', error.response);
       if (error.response?.status === 401) {
         navigate('/admin/login');
       }

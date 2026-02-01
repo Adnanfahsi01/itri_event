@@ -14,8 +14,11 @@ const api = axios.create({
 // Add auth token to requests if available
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
+  console.log('API Request:', config.method?.toUpperCase(), config.url);
+  console.log('Token found:', token ? 'Yes' : 'No');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('Authorization header set');
   }
   return config;
 });
@@ -36,7 +39,13 @@ export const getStatistics = () => api.get('/statistics');
 
 // Admin Reservations Management
 export const getReservations = (filters = {}) => {
-  const params = new URLSearchParams(filters).toString();
+  // Only include non-empty filter values
+  const cleanFilters = {};
+  if (filters.day && filters.day.trim()) cleanFilters.day = filters.day;
+  if (filters.role && filters.role.trim()) cleanFilters.role = filters.role;
+  if (filters.search && filters.search.trim()) cleanFilters.search = filters.search;
+  
+  const params = new URLSearchParams(cleanFilters).toString();
   return api.get(`/reservations${params ? `?${params}` : ''}`);
 };
 export const getReservation = (id) => api.get(`/reservations/${id}`);
