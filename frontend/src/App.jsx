@@ -14,7 +14,7 @@ import AdminQRScanner from './pages/admin/AdminQRScanner';
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* Admin Routes (without navbar/footer) */}
         <Route path="/admin/login" element={<AdminLogin />} />

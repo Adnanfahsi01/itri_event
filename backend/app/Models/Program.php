@@ -19,7 +19,8 @@ class Program extends Model
     protected $fillable = [
         'title',
         'day',
-        'time',
+        'start_time',
+        'end_time',
         'speaker_id',
     ];
 

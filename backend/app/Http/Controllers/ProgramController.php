@@ -17,7 +17,7 @@ class ProgramController extends Controller
      */
     public function index()
     {
-        $programs = Program::with('speaker')->orderBy('day')->orderBy('time')->get();
+        $programs = Program::with('speaker')->orderBy('day')->orderBy('start_time')->get();
         
         // Group programs by day
         $grouped = [
@@ -36,7 +36,7 @@ class ProgramController extends Controller
      */
     public function all()
     {
-        $programs = Program::with('speaker')->orderBy('day')->orderBy('time')->get();
+        $programs = Program::with('speaker')->orderBy('day')->orderBy('start_time')->get();
         return response()->json($programs);
     }
 
@@ -63,7 +63,8 @@ class ProgramController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'day' => 'required|in:day1,day2,day3',
-            'time' => 'required|string',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i|after:start_time',
             'speaker_id' => 'nullable|exists:speakers,id',
         ]);
 
@@ -89,7 +90,8 @@ class ProgramController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'day' => 'sometimes|required|in:day1,day2,day3',
-            'time' => 'sometimes|required|string',
+            'start_time' => 'sometimes|required|date_format:H:i',
+            'end_time' => 'sometimes|required|date_format:H:i',
             'speaker_id' => 'nullable|exists:speakers,id',
         ]);
 
