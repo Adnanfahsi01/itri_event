@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Scanner, useDevices } from '@yudiel/react-qr-scanner';
 
 /**
  * AdminQRScanner Component
@@ -12,14 +12,14 @@ function AdminQRScanner() {
   const [validationResult, setValidationResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [manualCode, setManualCode] = useState('');
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(true);
   const [error, setError] = useState(null);
-  const [cameras, setCameras] = useState([]);
-  const [selectedCamera, setSelectedCamera] = useState('');
+  const [selectedDevice, setSelectedDevice] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastScannedCode, setLastScannedCode] = useState(null);
-  const html5QrCode = useRef(null);
+  const [isPaused, setIsPaused] = useState(false);
   const scanTimeoutRef = useRef(null);
+  const devices = useDevices();
 
   useEffect(() => {
     // Check if admin is logged in
@@ -29,93 +29,39 @@ function AdminQRScanner() {
       return;
     }
 
-    // Get available cameras and start scanning
-    getCameras();
+    // Set first available device
+    if (devices.length > 0 && !selectedDevice) {
+      setSelectedDevice(devices[0].deviceId);
+    }
 
     return () => {
-      stopScanner();
       // Clear timeout on unmount
       if (scanTimeoutRef.current) {
         clearTimeout(scanTimeoutRef.current);
       }
     };
-  }, [navigate]);
+  }, [navigate, devices, selectedDevice]);
 
-  const getCameras = async () => {
-    try {
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length) {
-        setCameras(devices);
-        setSelectedCamera(devices[0].id);
-        startScanner(devices[0].id);
-      } else {
-        setError('No cameras found');
-      }
-    } catch (err) {
-      console.error('Error getting cameras:', err);
-      setError('Error accessing camera: ' + err.message);
-    }
-  };
-
-  const startScanner = async (cameraId) => {
-    try {
-      if (html5QrCode.current) {
-        await stopScanner();
-      }
-
-      html5QrCode.current = new Html5Qrcode("qr-reader");
-      
-      const config = {
-        fps: 10,
-        qrbox: { width: 300, height: 300 },
-        aspectRatio: 1.0
-      };
-
-      await html5QrCode.current.start(
-        cameraId,
-        config,
-        onScanSuccess,
-        onScanError
-      );
-      
-      setScanning(true);
-      setError(null);
-    } catch (err) {
-      console.error('Error starting scanner:', err);
-      setError('Error starting camera: ' + err.message);
-    }
-  };
-
-  const stopScanner = async () => {
-    try {
-      if (html5QrCode.current && html5QrCode.current.isScanning) {
-        await html5QrCode.current.stop();
-        await html5QrCode.current.clear();
-      }
-      html5QrCode.current = null;
-      setScanning(false);
-    } catch (err) {
-      console.error('Error stopping scanner:', err);
-    }
-  };
-
-  const onScanSuccess = async (decodedText, decodedResult) => {
+  const handleScan = (detectedCodes) => {
+    if (!detectedCodes || detectedCodes.length === 0) return;
+    
+    const firstCode = detectedCodes[0];
+    const decodedText = firstCode.rawValue;
+    
     // Prevent multiple scans - check if we're already processing or if this is the same code
     if (isProcessing || decodedText === lastScannedCode) {
       return;
     }
     
-    // Immediately stop scanning and set processing state
+    // Immediately pause scanning and set processing state
     setIsProcessing(true);
     setLastScannedCode(decodedText);
+    setIsPaused(true); // Pause scanning
     
     // Clear any existing timeout
     if (scanTimeoutRef.current) {
       clearTimeout(scanTimeoutRef.current);
     }
-    
-    // Stop scanner immediately
-    await stopScanner();
     
     setScanResult(decodedText);
     validateQRCode(decodedText);
@@ -127,9 +73,9 @@ function AdminQRScanner() {
     }, 3000);
   };
 
-  const onScanError = (error) => {
-    // Ignore scan errors (they happen frequently while searching)
-    console.debug('QR Scan error:', error);
+  const handleError = (error) => {
+    console.error('QR Scan error:', error);
+    setError(error?.message || 'Camera error occurred');
   };
 
   const validateQRCode = async (qrData) => {
@@ -242,7 +188,7 @@ function AdminQRScanner() {
     }
   };
 
-  const handleRestartScan = async () => {
+  const handleRestartScan = () => {
     // Clear timeout if exists
     if (scanTimeoutRef.current) {
       clearTimeout(scanTimeoutRef.current);
@@ -253,23 +199,17 @@ function AdminQRScanner() {
     setError(null);
     setIsProcessing(false);
     setLastScannedCode(null);
-    
-    if (selectedCamera) {
-      await startScanner(selectedCamera);
-    }
+    setIsPaused(false); // Resume scanning
   };
 
-  const handleCameraChange = async (cameraId) => {
-    // Clear timeout if exists
-    if (scanTimeoutRef.current) {
-      clearTimeout(scanTimeoutRef.current);
-    }
-    
-    setSelectedCamera(cameraId);
+  const handleDeviceChange = (deviceId) => {
+    setSelectedDevice(deviceId);
+    // Reset scan state when changing devices
+    setScanResult(null);
+    setValidationResult(null);
+    setError(null);
     setIsProcessing(false);
     setLastScannedCode(null);
-    await stopScanner();
-    await startScanner(cameraId);
   };
 
   return (
@@ -296,19 +236,19 @@ function AdminQRScanner() {
             <h2 className="text-xl font-bold text-accent mb-4">Scan Ticket QR Code</h2>
             
             {/* Camera Selection */}
-            {cameras.length > 1 && (
+            {devices.length > 1 && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Camera:
                 </label>
                 <select 
-                  value={selectedCamera}
-                  onChange={(e) => handleCameraChange(e.target.value)}
+                  value={selectedDevice}
+                  onChange={(e) => handleDeviceChange(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                 >
-                  {cameras.map((camera, index) => (
-                    <option key={camera.id} value={camera.id}>
-                      {camera.label || `Camera ${index + 1}`}
+                  {devices.map((device, index) => (
+                    <option key={device.deviceId} value={device.deviceId}>
+                      {device.label || `Camera ${index + 1}`}
                     </option>
                   ))}
                 </select>
@@ -324,26 +264,55 @@ function AdminQRScanner() {
             
             {!scanResult ? (
               <div>
-                <div id="qr-reader" className="w-full"></div>
-                {scanning && (
+                {selectedDevice && (
+                  <Scanner
+                    onScan={handleScan}
+                    onError={handleError}
+                    constraints={{
+                      deviceId: selectedDevice,
+                      facingMode: 'environment'
+                    }}
+                    formats={['qr_code']}
+                    paused={isPaused}
+                    scanDelay={500}
+                    components={{
+                      finder: true,
+                      torch: true,
+                      zoom: false
+                    }}
+                    styles={{
+                      container: {
+                        width: '100%',
+                        maxWidth: '400px',
+                        margin: '0 auto'
+                      }
+                    }}
+                  />
+                )}
+                {scanning && !isPaused && (
                   <div className="text-center mt-4">
                     <p className="text-sm text-gray-600 mb-2">Point the camera at a QR code to scan</p>
                     <button
-                      onClick={() => stopScanner()}
+                      onClick={() => setIsPaused(true)}
                       className="bg-red-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-600"
                     >
-                      Stop Scanning
+                      Pause Scanning
                     </button>
                   </div>
                 )}
-                {!scanning && !error && (
+                {(isPaused || !scanning) && (
                   <div className="text-center mt-4">
                     <button
-                      onClick={handleRestartScan}
+                      onClick={() => setIsPaused(false)}
                       className="bg-primary text-white px-6 py-2 rounded-lg font-semibold hover:bg-accent"
                     >
-                      Start Camera
+                      {isPaused ? 'Resume' : 'Start'} Scanning
                     </button>
+                  </div>
+                )}
+                {!selectedDevice && devices.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No cameras detected. Please ensure you have a camera connected and refresh the page.</p>
                   </div>
                 )}
               </div>
