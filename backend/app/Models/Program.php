@@ -18,9 +18,10 @@ class Program extends Model
      */
     protected $fillable = [
         'title',
-        'day',
-        'start_time',
-        'end_time',
+        'day', 
+        'time', // String format like "10:00 - 11:00"
+        'start_time', // Keep for backward compatibility
+        'end_time', // Keep for backward compatibility
         'speaker_id',
     ];
 
